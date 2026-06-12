@@ -17,22 +17,85 @@ cursor = db.cursor(dictionary=True)
 def login():
     return render_template("login.html")
 
+# main homepage
 @app.route("/")
-def home():
+def index():
+    return render_template("index.html")
 
+# view all current courses
+@app.route("/current_courses")
+def current_courses():
+    db = get_db()
     cursor = db.cursor(dictionary=True)
-
     cursor.execute("""
-        SELECT *
-        FROM Course
+        SELECT
+            co.offering_id,
+            c.course_id,
+            c.name,
+            c.credits,
+
+            i.name AS instructor,
+
+            cl.building,
+            cl.room_number,
+
+            co.current_enroll,
+            co.capacity,
+
+            s.year,
+            s.term
+
+        FROM Course_Offering co
+
+        JOIN Course c
+            ON co.course_id=c.course_id
+
+        JOIN Semester s
+            ON co.semester_id=s.semester_id
+
+        LEFT JOIN Instructor i
+            ON co.instructor_id=i.instructor_id
+
+        LEFT JOIN Classroom cl
+            ON co.classroom_id=cl.classroom_id
+
+        ORDER BY c.course_id
     """)
 
     courses = cursor.fetchall()
-
+    db.close()
     return render_template(
-        "index.html",
+        "current_courses.html",
         courses=courses
     )
+
+@app.route("/all_courses")
+def all_courses():
+    db=get_db()
+    cursor=db.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT
+            c.course_id,
+            c.name,
+            c.credits,
+            c.category,
+            d.dept_name
+
+        FROM Course c
+
+        LEFT JOIN Department d
+        ON c.dept_name=d.dept_name
+
+        ORDER BY c.course_id
+    """)
+
+    courses=cursor.fetchall()
+    db.close()
+    return render_template(
+        "all_courses.html",
+        courses=courses
+    )
+
 
 @app.route("/student_login", methods=["POST"])
 def student_login():
@@ -79,6 +142,7 @@ def student_home():
         "student_home.html",
         student=student
     )
+
 @app.route("/logout")
 def logout():
     session.clear()
@@ -109,6 +173,7 @@ def course_search():
     courses = cursor.fetchall()
 
     return render_template("course_search.html", courses=courses)
+
 @app.route("/enroll/<offering_id>")
 def enroll(offering_id):
 
@@ -201,6 +266,7 @@ def enroll(offering_id):
     db.close()
 
     return "選課成功"
+
 @app.route("/schedule")
 def schedule():
 
@@ -234,6 +300,7 @@ def schedule():
     db.close()
 
     return render_template("schedule.html", schedule=schedule_data)
+
 @app.route("/drop/<offering_id>")
 def drop(offering_id):
 
@@ -274,5 +341,6 @@ def drop(offering_id):
     db.close()
 
     return redirect("/schedule")
+
 if __name__ == "__main__":
     app.run(debug=True)

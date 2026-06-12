@@ -1,0 +1,19 @@
+<h1>所有課程</h1>
+
+<a href="/">回首頁</a>
+<table border="1">
+    <tr>
+        <th>課號</th>
+        <th>課程</th>
+        <th>學分</th>
+        <th>系所</th>
+        </tr>
+            {% for c in courses %}
+        <tr>
+        <td>{{c.course_id}}</td>
+        <td>{{c.name}}</td>
+        <td>{{c.credits}}</td>
+        <td>{{c.dept_name}}</td>
+    </tr>
+    {% endfor %}
+</table>

@@ -1,0 +1,23 @@
+<h1>本學期開課</h1>
+
+<a href="/">回首頁</a>
+
+<table border="1">
+    <tr>
+        <th>課號</th>
+        <th>名稱</th>
+        <th>教授</th>
+        <th>教室</th>
+        <th>人數</th>
+    </tr>
+
+    {% for c in courses %}
+    <tr>
+        <td>{{c.course_id}}</td>
+        <td>{{c.name}}</td>
+        <td>{{c.instructor}}</td>
+        <td>{{c.building}} {{c.room_number}}</td>
+        <td> {{c.current_enroll}} / {{c.capacity}}</td>
+    </tr>
+    {% endfor %}
+</table>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>我的課表</title>
+</head>
+<body>
+
+<h1>我的課表</h1>
+
+<table border="1">
+
+<tr>
+    <th>課程</th>
+    <th>星期</th>
+    <th>時間</th>
+    <th>教室</th>
+    <th>教授</th>
+    <th>操作</th>
+</tr>
+
+{% for s in schedule %}
+
+<tr>
+    <td>{{ s.course_name }}</td>
+
+    <td>
+        {% if s.weekday == 1 %}Mon
+        {% elif s.weekday == 2 %}Tue
+        {% elif s.weekday == 3 %}Wed
+        {% elif s.weekday == 4 %}Thu
+        {% elif s.weekday == 5 %}Fri
+        {% endif %}
+    </td>
+
+    <td>
+        {{ s.start_time }} - {{ s.end_time }}
+    </td>
+
+    <td>
+        {{ s.building }} {{ s.room_number }}
+    </td>
+
+    <td>
+        {{ s.instructor_name }}
+    </td>
+    
+    <td>
+    <a href="/drop/{{ s.offering_id }}">
+        取消選課
+    </a>
+    </td>
+</tr>
+
+{% endfor %}
+
+</table>
+
+</body>
+</html>

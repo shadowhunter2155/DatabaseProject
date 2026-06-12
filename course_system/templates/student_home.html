@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>學生首頁</title>
+</head>
+<body>
+
+<h1>歡迎 {{ student.name }}</h1>
+
+<p>學號：{{ student.student_id }}</p>
+
+<p>系所：{{ student.dept_name }}</p>
+
+<p>年級：{{ student.grade }}</p>
+
+<p>總學分：{{ student.tot_credits }}</p>
+
+<hr>
+
+<a href="/course_search">
+    查詢課程
+</a>
+
+<br><br>
+
+<a href="/schedule">
+    我的課表
+</a>
+
+<br><br>
+
+<a href="/schedule">查看課表</a>
+</body>
+</html>

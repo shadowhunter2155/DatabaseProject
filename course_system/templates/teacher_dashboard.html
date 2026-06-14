@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teacher Dashboard</title>
+</head>
+
+<body>
+
+<h2>老師後台</h2>
+
+<p>歡迎老師：{{ teacher.instructor_id }}</p>
+
+<hr>
+
+<h3>新增課程</h3>
+
+<form action="/teacher/course/add" method="POST">
+
+    課程ID：
+    <input name="course_id"><br><br>
+
+    課程名稱：
+    <input name="name"><br><br>
+
+    學分：
+    <input name="credits"><br><br>
+
+    <button type="submit">新增課程</button>
+</form>
+
+<hr>
+
+<h3>修改課程</h3>
+
+<form method="POST" id="editCourseForm">
+
+    課程ID：
+    <input name="course_id"><br><br>
+
+    新名稱：
+    <input name="name"><br><br>
+
+    新學分：
+    <input name="credits"><br><br>
+
+    <button type="submit">修改課程</button>
+</form>
+
+<hr>
+
+<h3>新增開課</h3>
+
+<form action="/teacher/offering/add" method="POST">
+
+    課程ID：
+    <input name="course_id"><br><br>
+
+    學期ID：
+    <input name="semester_id"><br><br>
+
+    教室ID：
+    <input name="classroom_id"><br><br>
+
+    時間ID：
+    <input name="time_id"><br><br>
+
+    人數上限：
+    <input name="capacity"><br><br>
+
+    <button type="submit">新增開課</button>
+</form>
+
+<hr>
+
+<h3>修改開課</h3>
+
+<form method="POST" id="editOfferingForm">
+
+    開課ID：
+    <input name="offering_id"><br><br>
+
+    教室ID：
+    <input name="classroom_id"><br><br>
+
+    時間ID：
+    <input name="time_id"><br><br>
+
+    人數上限：
+    <input name="capacity"><br><br>
+
+    <button type="submit">修改開課</button>
+</form>
+
+<hr>
+
+<h3>刪除開課</h3>
+
+<form onsubmit="event.preventDefault(); window.location='/teacher/offering/delete/' + this.offering_id.value;">
+
+    開課ID：
+    <input name="offering_id"><br><br>
+
+    <button type="submit">刪除</button>
+</form>
+
+<p style="color:red;">
+注意：刪除會直接呼叫 /teacher/offering/delete/ID
+</p>
+
+<hr>
+
+<h3>查詢功能</h3>
+
+<ul>
+    <li><a href="/teacher/schedule">查看我的課表</a></li>
+    <li><a href="/teacher/courses">查看我的所有開課</a></li>
+</ul>
+
+<hr>
+
+<script>
+document.getElementById("editCourseForm").onsubmit = function(e) {
+    e.preventDefault();
+    let id = this.course_id.value;
+    this.action = "/teacher/course/edit/" + id;
+    this.submit();
+};
+
+document.getElementById("editOfferingForm").onsubmit = function(e) {
+    e.preventDefault();
+    let id = this.offering_id.value;
+    this.action = "/teacher/offering/edit/" + id;
+    this.submit();
+};
+</script>
+
+</body>
+</html>

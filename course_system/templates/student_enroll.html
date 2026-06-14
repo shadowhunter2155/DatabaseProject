@@ -1,0 +1,16 @@
+﻿<h2>可選課程</h2>
+<ul>
+    {% for o in offerings %}
+    <li>
+        課程 {{ o.course_id }}
+        <a href="/student/enroll/{{ o.offering_id }}">
+            <button>加入</button>
+        </a>
+    </li>
+    {% endfor %}
+</ul>
+
+<form action="/student/enroll/{{ offering_id }}" method="post">
+    授權碼 (選填): <input type="text" name="auth_code"><br>
+    <button type="submit">加入課程</button>
+</form>

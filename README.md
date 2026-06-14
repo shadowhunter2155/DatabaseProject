@@ -11,6 +11,9 @@ FLUSH PRIVILEGES;
 CREATE DATABASE course_system;
 ```
 
+# system
+http://127.0.0.1:5000/
+
 # 系統功能實作規劃:
 ## 檢視課程
 - 選擇檢視該學期開的課程，或是所有課程

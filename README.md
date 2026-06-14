@@ -1,3 +1,12 @@
+# MSQL:
+## 用戶
+CREATE USER 'course_admin'@'localhost' IDENTIFIED BY 'mypassword';
+GRANT ALL PRIVILEGES ON course_system.* TO 'course_admin'@'localhost';
+FLUSH PRIVILEGES;
+
+## DATABASE
+CREATE DATABASE course_system;
+
 # 系統功能實作規劃:
 ## 檢視課程
 - 選擇檢視該學期開的課程，或是所有課程

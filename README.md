@@ -106,6 +106,7 @@ CREATE TABLE Classroom (
 -- 開課資訊表
 CREATE TABLE Course_Offering (
     offering_id INT AUTO_INCREMENT PRIMARY KEY,
+    classroom_id VARCHAR(50),
     course_id VARCHAR(20) NOT NULL,
     semester VARCHAR(20) NOT NULL,
     instructor_id VARCHAR(20),

@@ -13,22 +13,18 @@ USE course_system;
 -- 學生表
 CREATE TABLE Student (
     student_id VARCHAR(20) PRIMARY KEY,
-    name VARCHAR(50) NOT NULL,
     password VARCHAR(100) NOT NULL
 );
 
 -- 老師表
 CREATE TABLE Instructor (
     instructor_id VARCHAR(20) PRIMARY KEY,
-    name VARCHAR(50) NOT NULL,
     password VARCHAR(100) NOT NULL
 );
 
 -- 系所
 CREATE TABLE Department (
     dept_name VARCHAR(50) PRIMARY KEY,
-    office VARCHAR(50),
-    phone VARCHAR(20)
 );
 ```
 

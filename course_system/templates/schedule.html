@@ -2,53 +2,95 @@
 <html>
 <head>
     <title>我的課表</title>
+
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            text-align: center;
+        }
+
+        th, td {
+            border: 1px solid black;
+            padding: 10px;
+            height: 60px;
+        }
+
+        th {
+            background: #f2f2f2;
+        }
+    </style>
 </head>
+
 <body>
 
-<h1>我的課表</h1>
+<h2>我的課表</h2>
+<div style="margin-bottom:20px;">
 
-<table border="1">
+    <a href="/student_home">
+        <button>🏠 學生首頁</button>
+    </a>
+
+    <a href="/course_search">
+        <button>🔍 選課查詢</button>
+    </a>
+
+    <a href="/schedule">
+        <button>📅 我的課表</button>
+    </a>
+
+    <a href="/logout">
+        <button>🚪 登出</button>
+    </a>
+
+</div>
+
+<hr>
+<table>
 
 <tr>
-    <th>課程</th>
-    <th>星期</th>
-    <th>時間</th>
-    <th>教室</th>
-    <th>教授</th>
-    <th>操作</th>
+    <th>節次</th>
+    <th>Mon</th>
+    <th>Tue</th>
+    <th>Wed</th>
+    <th>Thu</th>
+    <th>Fri</th>
 </tr>
 
-{% for s in schedule %}
+{% for p in periods %}
 
 <tr>
-    <td>{{ s.course_name }}</td>
 
-    <td>
-        {% if s.weekday == 1 %}Mon
-        {% elif s.weekday == 2 %}Tue
-        {% elif s.weekday == 3 %}Wed
-        {% elif s.weekday == 4 %}Thu
-        {% elif s.weekday == 5 %}Fri
-        {% endif %}
-    </td>
+    <td>{{ p }}</td>
 
-    <td>
-        {{ s.start_time }} - {{ s.end_time }}
-    </td>
+    {% for d in weekdays %}
 
-    <td>
-        {{ s.building }} {{ s.room_number }}
-    </td>
+        <td>
 
-    <td>
-        {{ s.instructor_name }}
-    </td>
-    
-    <td>
-    <a href="/drop/{{ s.offering_id }}">
-        取消選課
-    </a>
-    </td>
+            {% if p in timetable and d in timetable[p] %}
+
+                <b>{{ timetable[p][d].course_name }}</b><br>
+                {{ timetable[p][d].building }} {{ timetable[p][d].room_number }}<br>
+                {{ timetable[p][d].instructor_name }}<br><br>
+
+                <button onclick="confirmDrop('{{ timetable[p][d].offering_id }}')">
+                取消選課
+                </button>
+
+                <script>
+                function confirmDrop(id){
+                    if(confirm("確定要刪除這門課嗎？")){
+                        window.location.href = "/drop/" + id;
+                    }
+                }
+                </script>
+
+            {% endif %}
+
+        </td>
+
+    {% endfor %}
+
 </tr>
 
 {% endfor %}

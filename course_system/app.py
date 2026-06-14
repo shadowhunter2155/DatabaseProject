@@ -69,11 +69,12 @@ def get_course_periods(start_time, end_time):
             matched_periods.append(p)
             
     return matched_periods
+# 在 app.py 中大約第 50 行左右
 def get_db():
     return mysql.connector.connect(
         host="localhost",
-        user="course_admin",
-        password="mypassword",
+        user="root",          # 👈 改成你常用的帳號（例如 root）
+        password="poray0408",   # 👈 改成你電腦真正的資料庫密碼
         database="course_system"
     )
 db = get_db()

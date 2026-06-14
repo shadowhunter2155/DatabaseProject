@@ -9,6 +9,20 @@ FLUSH PRIVILEGES;
 ## DATABASE
 ```sql
 CREATE DATABASE course_system;
+USE course_system;
+-- 學生表
+CREATE TABLE Student (
+    student_id VARCHAR(20) PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    password VARCHAR(100) NOT NULL
+);
+
+-- 老師表
+CREATE TABLE Instructor (
+    instructor_id VARCHAR(20) PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    password VARCHAR(100) NOT NULL
+);
 ```
 
 # system execute

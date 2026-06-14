@@ -1,8 +1,37 @@
-from flask import Flask, render_template, request, redirect, session
+from flask import Flask, render_template, request, redirect, session, url_for
 import mysql.connector
 
 app = Flask(__name__)
 app.secret_key = "course_system_secret"
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        user_id = request.form["user_id"]
+        password = request.form["password"]
+        role = request.form["role"]  # 'student' 或 'teacher'
+
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        if role == "student":
+            cursor.execute("""
+                INSERT INTO Student(student_id, password)
+                VALUES (%s, %s)
+            """, (user_id, password))
+        elif role == "teacher":
+            cursor.execute("""
+                INSERT INTO Instructor(instructor_id, password)
+                VALUES (%s, %s)
+            """, (user_id, password))
+
+        db.commit()
+        db.close()
+        return redirect("/login")
+
+    # GET 時顯示註冊表單
+    return render_template("register.html")
+
 
 def get_course_periods(start_time, end_time):
     """
@@ -12,7 +41,6 @@ def get_course_periods(start_time, end_time):
     # 將時間統一轉為秒數
     start_sec = start_time.total_seconds() if hasattr(start_time, 'total_seconds') else start_time.seconds
     end_sec = end_time.total_seconds() if hasattr(end_time, 'total_seconds') else end_time.seconds
-
     # 台大節數對應的「開始時間」與「結束時間」秒數
     # 格式：(節數, 開始秒數, 結束秒數)
     # 08:10 = 8*3600 + 10*60 = 29400 秒
@@ -44,16 +72,51 @@ def get_course_periods(start_time, end_time):
 def get_db():
     return mysql.connector.connect(
         host="localhost",
-        user="root",
-        password="poray0408",
+        user="course_admin",
+        password="mypassword",
         database="course_system"
     )
 db = get_db()
 cursor = db.cursor(dictionary=True)
 
-@app.route("/login")
+
+
+@app.route("/login", methods=["GET", "POST"])
 def login():
+    if request.method == "POST":
+        role = request.form.get("role")
+        password = request.form.get("password")
+
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        if role == "student":
+            student_id = request.form.get("student_id")
+            cursor.execute("SELECT * FROM Student WHERE student_id=%s AND password=%s",
+                           (student_id, password))
+            student = cursor.fetchone()
+            if student:
+                session["student_id"] = student_id
+                return redirect(url_for("student_home"))
+            else:
+                return "帳號或密碼錯誤"
+
+        elif role == "teacher":
+            teacher_id = request.form.get("teacher_id")
+            cursor.execute("SELECT * FROM Instructor WHERE instructor_id=%s AND password=%s",
+                           (teacher_id, password))
+            teacher = cursor.fetchone()
+            if teacher:
+                session["teacher_id"] = teacher_id
+                return redirect(url_for("teacher_home"))
+            else:
+                return "帳號或密碼錯誤"
+
+        db.close()
+
     return render_template("login.html")
+
+
 
 # main homepage
 @app.route("/")
@@ -72,7 +135,7 @@ def current_courses():
             c.name,
             c.credits,
 
-            i.name AS instructor,
+            i.instructor_id AS instructor,
 
             cl.building,
             cl.room_number,
@@ -168,6 +231,29 @@ def student_home():
 
     return render_template("student_home.html", student=student)
 
+@app.route("/teacher_home")
+def teacher_home():
+
+    if "teacher_id" not in session:
+        return redirect("/login")
+
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT *
+        FROM Instructor
+        WHERE instructor_id=%s
+    """, (session["teacher_id"],))
+
+    teacher = cursor.fetchone()
+
+    return render_template(
+        "teacher_home.html",
+        teacher=teacher
+    )
+
+
+
 @app.route("/logout")
 def logout():
     session.clear()
@@ -206,7 +292,7 @@ def course_search():
         ct.start_time,
         ct.end_time,
 
-        i.name AS instructor,
+        i.instructor_id AS instructor,
 
         cl.building,
         cl.room_number,
@@ -435,7 +521,7 @@ def schedule():
         ct.end_time,
         cl.building,
         cl.room_number,
-        i.name AS instructor_name
+        i.instructor_id AS instructor_name
     FROM Enrollment e
     JOIN Course_Offering co ON e.offering_id = co.offering_id
     JOIN Course c ON co.course_id = c.course_id
@@ -512,6 +598,109 @@ def drop(offering_id):
     db.close()
 
     return redirect("/schedule")
+
+@app.route("/student_enroll")
+def student_enroll_page():
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT offering_id, course_id FROM Course_Offering")
+    offerings = cursor.fetchall()
+    db.close()
+    return render_template("student_enroll.html", offerings=offerings)
+
+@app.route("/student/enroll/<offering_id>", methods=["POST"])
+def student_enroll(offering_id):
+    student_id = session.get("student_id")
+    if not student_id:
+        return redirect("/login")
+
+    auth_code = request.form.get("auth_code", "").strip()
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    # 檢查課程人數
+    cursor.execute("SELECT capacity, current_enroll, course_id FROM Course_Offering WHERE offering_id=%s", (offering_id,))
+    offering = cursor.fetchone()
+    if offering["current_enroll"] >= offering["capacity"] and not auth_code:
+        return {"message": "課程已滿，需授權碼"}, 400
+
+    # 檢查授權碼
+    if auth_code:
+        cursor.execute("""SELECT * FROM Authorization_Code 
+                          WHERE code=%s AND offering_id=%s AND used=FALSE AND expire_time > NOW()""",
+                       (auth_code, offering_id))
+        if not cursor.fetchone():
+            return {"message": "授權碼無效"}, 400
+
+    # 檢查重複選課
+    cursor.execute("SELECT * FROM Enrollment WHERE student_id=%s AND offering_id=%s", (student_id, offering_id))
+    if cursor.fetchone():
+        return {"message": "已選過此課"}, 400
+
+    # 檢查時間衝突
+    cursor.execute("""SELECT ct.* FROM Enrollment e 
+                      JOIN Course_Offering co ON e.offering_id=co.offering_id 
+                      JOIN Course_Time ct ON co.time_id=ct.time_id 
+                      WHERE e.student_id=%s""", (student_id,))
+    my_times = cursor.fetchall()
+    cursor.execute("""SELECT ct.* FROM Course_Offering co 
+                      JOIN Course_Time ct ON co.time_id=ct.time_id 
+                      WHERE co.offering_id=%s""", (offering_id,))
+    new_time = cursor.fetchone()
+    for t in my_times:
+        if t["weekday"] == new_time["weekday"] and not (new_time["end_time"] <= t["start_time"] or new_time["start_time"] >= t["end_time"]):
+            return {"message": "時間衝堂"}, 400
+
+    # 檢查先修課程
+    cursor.execute("SELECT prereq_id FROM Course_Prereq WHERE course_id=%s", (offering["course_id"],))
+    prereqs = cursor.fetchall()
+    for p in prereqs:
+        cursor.execute("SELECT * FROM Completed_Course WHERE student_id=%s AND course_id=%s", (student_id, p["prereq_id"]))
+        if not cursor.fetchone():
+            return {"message": "未滿足先修課"}, 400
+
+    # 新增選課
+    cursor.execute("INSERT INTO Enrollment(student_id, offering_id, status, priority) VALUES (%s, %s, 'enrolled', 1)", (student_id, offering_id))
+    cursor.execute("UPDATE Course_Offering SET current_enroll=current_enroll+1 WHERE offering_id=%s", (offering_id,))
+    if auth_code:
+        cursor.execute("UPDATE Authorization_Code SET used=TRUE WHERE code=%s", (auth_code,))
+    db.commit()
+    db.close()
+    return {"message": "選課成功"}
+
+@app.route("/teacher/add_course", methods=["GET", "POST"])
+def teacher_add_course():
+    if "teacher_id" not in session:
+        return redirect("/login")
+
+    if request.method == "POST":
+        course_id = request.form["course_id"]
+        name = request.form["name"]
+        credits = request.form["credits"]
+        dept_name = request.form["dept_name"]
+        prereqs = request.form.getlist("prereqs")  # 多選先修課程
+
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+        cursor.execute("INSERT INTO Course(course_id, name, credits, dept_name) VALUES (%s, %s, %s, %s)",
+                       (course_id, name, credits, dept_name))
+
+        # 設定先修課程
+        for prereq_id in prereqs:
+            cursor.execute("INSERT INTO Course_Prereq(course_id, prereq_id) VALUES (%s, %s)", (course_id, prereq_id))
+
+        db.commit()
+        db.close()
+        return redirect("/all_courses")
+
+    # GET 顯示表單
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT course_id, name FROM Course")
+    all_courses = cursor.fetchall()
+    db.close()
+    return render_template("teacher_add_course.html", courses=all_courses)
+
 
 if __name__ == "__main__":
     app.run(debug=True)

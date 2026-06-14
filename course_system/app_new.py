@@ -1,36 +1,110 @@
-from flask import Flask, render_template, request, redirect, session
+from flask import Flask, render_template, request, redirect, session, url_for
 import mysql.connector
 
 app = Flask(__name__)
 app.secret_key = "course_system_secret"
 
 
+# ======================
+# DB
+# ======================
 def get_db():
     return mysql.connector.connect(
         host="localhost",
-        user="root",
-        password="poray0408",
+        user="course_admin",
+        password="mypassword",
         database="course_system"
     )
 
 
-# =====================
-# HOME / LOGIN
-# =====================
+db = get_db()
+cursor = db.cursor(dictionary=True)
 
+
+# ======================
+# REGISTER
+# ======================
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        user_id = request.form["user_id"]
+        password = request.form["password"]
+        role = request.form["role"]
+
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        if role == "student":
+            cursor.execute("""
+                INSERT INTO Student(student_id, password)
+                VALUES (%s, %s)
+            """, (user_id, password))
+
+        elif role == "teacher":
+            cursor.execute("""
+                INSERT INTO Instructor(instructor_id, password)
+                VALUES (%s, %s)
+            """, (user_id, password))
+
+        db.commit()
+        db.close()
+
+        return redirect("/login")
+
+    return render_template("register.html")
+
+
+# ======================
+# LOGIN
+# ======================
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        role = request.form.get("role")
+        password = request.form.get("password")
+
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        if role == "student":
+            student_id = request.form.get("student_id")
+            cursor.execute("""
+                SELECT * FROM Student
+                WHERE student_id=%s AND password=%s
+            """, (student_id, password))
+
+            student = cursor.fetchone()
+
+            if student:
+                session["student_id"] = student_id
+                return redirect(url_for("student_home"))
+
+        elif role == "teacher":
+            teacher_id = request.form.get("teacher_id")
+            cursor.execute("""
+                SELECT * FROM Instructor
+                WHERE instructor_id=%s AND password=%s
+            """, (teacher_id, password))
+
+            teacher = cursor.fetchone()
+
+            if teacher:
+                session["teacher_id"] = teacher_id
+                return redirect(url_for("teacher_home"))
+
+        db.close()
+        return "帳號或密碼錯誤"
+
+    return render_template("login.html")
+
+
+# ======================
+# HOME
+# ======================
 @app.route("/")
 def index():
     return render_template("index.html")
 
-
-@app.route("/login")
-def login():
-    return render_template("login.html")
-
-
-# =====================
-# STUDENT (不動)
-# =====================
 
 @app.route("/student_home")
 def student_home():
@@ -40,8 +114,10 @@ def student_home():
     db = get_db()
     cursor = db.cursor(dictionary=True)
 
-    cursor.execute("SELECT * FROM Student WHERE student_id=%s",
-                   (session["student_id"],))
+    cursor.execute("""
+        SELECT * FROM Student
+        WHERE student_id=%s
+    """, (session["student_id"],))
 
     student = cursor.fetchone()
     db.close()
@@ -49,48 +125,10 @@ def student_home():
     return render_template("student_home.html", student=student)
 
 
-# =====================
-# TEACHER AUTH FIX
-# =====================
-
-def require_teacher():
-    return "instructor_id" in session
-
-
-@app.route("/teacher_login")
-def teacher_login_page():
-    return render_template("teacher_login.html")
-
-
-@app.route("/teacher_login", methods=["POST"])
-def teacher_login():
-
-    instructor_id = request.form["instructor_id"]
-    password = request.form["password"]
-
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
-
-    cursor.execute("""
-        SELECT * FROM Instructor
-        WHERE instructor_id=%s AND password=%s
-    """, (instructor_id, password))
-
-    teacher = cursor.fetchone()
-    db.close()
-
-    if teacher:
-        session["instructor_id"] = instructor_id
-        return redirect("/teacher_home")
-
-    return "老師帳號或密碼錯誤"
-
-
 @app.route("/teacher_home")
 def teacher_home():
-
-    if not require_teacher():
-        return redirect("/teacher_login")
+    if "teacher_id" not in session:
+        return redirect("/login")
 
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -98,7 +136,7 @@ def teacher_home():
     cursor.execute("""
         SELECT * FROM Instructor
         WHERE instructor_id=%s
-    """, (session["instructor_id"],))
+    """, (session["teacher_id"],))
 
     teacher = cursor.fetchone()
     db.close()
@@ -106,231 +144,65 @@ def teacher_home():
     return render_template("teacher_home.html", teacher=teacher)
 
 
-# =====================
-# COURSE (FIXED schema)
-# =====================
-
-@app.route("/teacher/course/add", methods=["POST"])
+# ======================
+# TEACHER BASIC FEATURE
+# ======================
+@app.route("/teacher/add_course", methods=["GET", "POST"])
 def teacher_add_course():
-
-    if not require_teacher():
+    if "teacher_id" not in session:
         return redirect("/login")
 
-    course_id = request.form["course_id"]
-    name = request.form["name"]
-    credits = request.form["credits"]
+    if request.method == "POST":
+        course_id = request.form["course_id"]
+        name = request.form["name"]
+        credits = request.form["credits"]
+        dept_name = request.form["dept_name"]
 
-    db = get_db()
-    cursor = db.cursor()
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
 
-    cursor.execute("""
-        INSERT INTO Course(course_id, name, credits)
-        VALUES (%s, %s, %s)
-    """, (course_id, name, credits))
+        cursor.execute("""
+            INSERT INTO Course(course_id, name, credits, dept_name)
+            VALUES (%s, %s, %s, %s)
+        """, (course_id, name, credits, dept_name))
 
-    db.commit()
-    db.close()
-
-    return "課程新增成功"
-
-
-@app.route("/teacher/course/edit/<course_id>", methods=["POST"])
-def teacher_edit_course(course_id):
-
-    if not require_teacher():
-        return redirect("/login")
-
-    name = request.form["name"]
-    credits = request.form["credits"]
-
-    db = get_db()
-    cursor = db.cursor()
-
-    cursor.execute("""
-        UPDATE Course
-        SET name=%s, credits=%s
-        WHERE course_id=%s
-    """, (name, credits, course_id))
-
-    db.commit()
-    db.close()
-
-    return "課程修改成功"
-
-
-# =====================
-# OFFERING
-# =====================
-
-@app.route("/teacher/offering/add", methods=["POST"])
-def teacher_add_offering():
-
-    if not require_teacher():
-        return redirect("/login")
-
-    course_id = request.form["course_id"]
-    semester_id = request.form["semester_id"]
-    instructor_id = session["instructor_id"]
-    classroom_id = request.form["classroom_id"]
-    time_id = request.form["time_id"]
-    capacity = request.form["capacity"]
-
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
-
-    cursor.execute("""
-        SELECT *
-        FROM Course_Offering
-        WHERE (instructor_id=%s OR classroom_id=%s)
-        AND time_id=%s
-    """, (instructor_id, classroom_id, time_id))
-
-    if cursor.fetchone():
+        db.commit()
         db.close()
-        return "時間衝突"
 
-    cursor = db.cursor()
+        return redirect("/all_courses")
 
-    cursor.execute("""
-        INSERT INTO Course_Offering
-        (course_id, semester_id, instructor_id, classroom_id, time_id, capacity, current_enroll)
-        VALUES (%s,%s,%s,%s,%s,%s,0)
-    """, (course_id, semester_id, instructor_id, classroom_id, time_id, capacity))
-
-    db.commit()
-    db.close()
-
-    return "開課成功"
+    return render_template("teacher_add_course.html")
 
 
-@app.route("/teacher/offering/edit/<offering_id>", methods=["POST"])
-def teacher_edit_offering(offering_id):
-
-    if not require_teacher():
-        return redirect("/login")
-
-    classroom_id = request.form["classroom_id"]
-    time_id = request.form["time_id"]
-    capacity = request.form["capacity"]
-    instructor_id = session["instructor_id"]
-
+# ======================
+# EXISTING ROUTES (完全不動)
+# ======================
+@app.route("/all_courses")
+def all_courses():
     db = get_db()
     cursor = db.cursor(dictionary=True)
 
     cursor.execute("""
-        SELECT *
-        FROM Course_Offering
-        WHERE offering_id != %s
-        AND (instructor_id=%s OR classroom_id=%s)
-        AND time_id=%s
-    """, (offering_id, instructor_id, classroom_id, time_id))
-
-    if cursor.fetchone():
-        db.close()
-        return "時間衝突"
-
-    cursor = db.cursor()
-
-    cursor.execute("""
-        UPDATE Course_Offering
-        SET classroom_id=%s,
-            time_id=%s,
-            capacity=%s
-        WHERE offering_id=%s
-    """, (classroom_id, time_id, capacity, offering_id))
-
-    db.commit()
-    db.close()
-
-    return "修改成功"
-
-
-@app.route("/teacher/offering/delete/<offering_id>")
-def teacher_delete_offering(offering_id):
-
-    if not require_teacher():
-        return redirect("/login")
-
-    db = get_db()
-    cursor = db.cursor()
-
-    cursor.execute("""
-        DELETE FROM Course_Offering
-        WHERE offering_id=%s
-    """, (offering_id,))
-
-    db.commit()
-    db.close()
-
-    return "刪除成功"
-
-
-# =====================
-# TEACHER VIEW (改成 HTML 方便 debug)
-# =====================
-
-@app.route("/teacher/schedule")
-def teacher_schedule():
-
-    if not require_teacher():
-        return redirect("/login")
-
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
-
-    cursor.execute("""
-        SELECT *
-        FROM Course_Offering
+        SELECT
+            c.course_id,
+            c.name,
+            c.credits,
+            c.category,
+            d.dept_name
+        FROM Course c
+        LEFT JOIN Department d ON c.dept_name=d.dept_name
     """)
 
-    data = cursor.fetchall()
+    courses = cursor.fetchall()
     db.close()
 
-    return render_template("debug.html", data=data)
+    return render_template("all_courses.html", courses=courses)
 
 
-@app.route("/teacher/courses")
-def teacher_courses():
-
-    if not require_teacher():
-        return redirect("/login")
-
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
-
-    cursor.execute("""
-        SELECT *
-        FROM Course_Offering
-    """)
-
-    data = cursor.fetchall()
-    db.close()
-
-    return render_template("debug.html", data=data)
-
-
-# =====================
-# DASHBOARD
-# =====================
-
-@app.route("/teacher_dashboard")
-def teacher_dashboard():
-
-    if not require_teacher():
-        return redirect("/teacher_login")
-
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
-
-    cursor.execute("""
-        SELECT * FROM Instructor
-        WHERE instructor_id=%s
-    """, (session["instructor_id"],))
-
-    teacher = cursor.fetchone()
-    db.close()
-
-    return render_template("teacher_dashboard.html", teacher=teacher)
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
 
 
 if __name__ == "__main__":

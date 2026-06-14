@@ -12,10 +12,11 @@ CREATE DATABASE course_system;
 ```
 
 # system execute
-1. python or flask
+1. python 
 ```python
 python app.py
 ```
+or flask
 ```flask
 flask run
 ```

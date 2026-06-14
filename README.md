@@ -95,16 +95,24 @@ CREATE TABLE Course_Time (
     end_time TIME NOT NULL
 );
 
+-- 教室
+CREATE TABLE Classroom (
+    classroom_id VARCHAR(20) PRIMARY KEY,
+    building VARCHAR(50),
+    room_number VARCHAR(20),
+    capacity INT
+);
+
 -- 開課資訊表
 CREATE TABLE Course_Offering (
     offering_id INT AUTO_INCREMENT PRIMARY KEY,
     course_id VARCHAR(20) NOT NULL,
     semester VARCHAR(20) NOT NULL,
     instructor_id VARCHAR(20),
-    classroom VARCHAR(50),
     capacity INT NOT NULL,
     current_enroll INT DEFAULT 0,
     time_id INT,
+    FOREIGN KEY (classroom_id) REFERENCES Classroom(classroom_id),
     FOREIGN KEY (course_id) REFERENCES Course(course_id),
     FOREIGN KEY (instructor_id) REFERENCES Instructor(instructor_id),
     FOREIGN KEY (time_id) REFERENCES Course_Time(time_id)
@@ -148,14 +156,6 @@ CREATE TABLE Completed_Course (
     PRIMARY KEY (student_id, course_id),
     FOREIGN KEY (student_id) REFERENCES Student(student_id),
     FOREIGN KEY (course_id) REFERENCES Course(course_id)
-);
-
--- 教室
-CREATE TABLE Classroom (
-    classroom_id VARCHAR(20) PRIMARY KEY,
-    building VARCHAR(50),
-    room_number VARCHAR(20),
-    capacity INT
 );
 
 ```

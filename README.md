@@ -16,12 +16,14 @@ CREATE DATABASE course_system;
 ```python
 python app.py
 ```
-or flask
+  or flask
 ```flask
 flask run
 ```
 2. link
+```
 http://127.0.0.1:5000/
+```
 
 # 系統功能實作規劃:
 ## 檢視課程

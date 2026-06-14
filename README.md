@@ -11,7 +11,15 @@ FLUSH PRIVILEGES;
 CREATE DATABASE course_system;
 ```
 
-# system
+# system execute
+1. python or flask
+```python
+python app.py
+```
+```flask
+flask run
+```
+2. link
 http://127.0.0.1:5000/
 
 # 系統功能實作規劃:

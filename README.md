@@ -150,4 +150,12 @@ CREATE TABLE Completed_Course (
     FOREIGN KEY (course_id) REFERENCES Course(course_id)
 );
 
+-- 教室
+CREATE TABLE Classroom (
+    classroom_id VARCHAR(20) PRIMARY KEY,
+    building VARCHAR(50),
+    room_number VARCHAR(20),
+    capacity INT
+);
+
 ```

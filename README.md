@@ -23,6 +23,13 @@ CREATE TABLE Instructor (
     name VARCHAR(50) NOT NULL,
     password VARCHAR(100) NOT NULL
 );
+
+-- 系所
+CREATE TABLE Department (
+    dept_name VARCHAR(50) PRIMARY KEY,
+    office VARCHAR(50),
+    phone VARCHAR(20)
+);
 ```
 
 # system execute

@@ -1,29 +1,61 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>學生登入</title>
+    <title>用戶登入</title>
 </head>
 <body>
 
-<h2>學生登入</h2>
+    <h2>用戶登入</h2>
 
-<form action="/student_login" method="POST">
+    <form action="/login" method="POST">
 
-    學號：
-    <input type="text" name="student_id">
+        身份：
+        <select name="role" required>
+            <option value="student">學生</option>
+            <option value="teacher">老師</option>
+        </select>
 
-    <br><br>
+        <br><br>
 
-    密碼：
-    <input type="password" name="password">
+        <!-- 學生帳號 -->
+        <div id="student_field">
+            學號：
+            <input type="text" name="student_id">
+        </div>
 
-    <br><br>
+        <!-- 老師帳號 -->
+        <div id="teacher_field" style="display:none;">
+            老師ID：
+            <input type="text" name="teacher_id">
+        </div>
 
-    <button type="submit">
-        登入
-    </button>
+        <br><br>
 
-</form>
+        密碼：
+        <input type="password" name="password" required>
+
+        <br><br>
+
+        <button type="submit">登入</button>
+
+    </form>
+
+    <script>
+        // 切換身份時顯示對應的帳號欄位
+        const roleSelect = document.querySelector("select[name='role']");
+        const studentField = document.getElementById("student_field");
+        const teacherField = document.getElementById("teacher_field");
+
+        roleSelect.addEventListener("change", function() {
+            if (this.value === "student") {
+                studentField.style.display = "block";
+                teacherField.style.display = "none";
+            } else {
+                studentField.style.display = "none";
+                teacherField.style.display = "block";
+            }
+        });
+    </script>
 
 </body>
 </html>

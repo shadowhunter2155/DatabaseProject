@@ -75,7 +75,7 @@ def get_db():
         host="localhost",
         user="root",          # 👈 改成你常用的帳號（例如 root）
         password="poray0408",   # 👈 改成你電腦真正的資料庫密碼
-        database="course_system"
+        database="course_system2"
     )
 db = get_db()
 cursor = db.cursor(dictionary=True)
@@ -272,6 +272,7 @@ def course_search():
 
     db = get_db()
     cursor = db.cursor(dictionary=True)
+    
     cursor.execute("""
         SELECT DISTINCT dept_name
         FROM Department
@@ -279,45 +280,35 @@ def course_search():
     """)
 
     departments = cursor.fetchall()
+    # 修改後的 Base SQL
     sql = """
     SELECT
         co.offering_id,
-
         c.course_id,
         c.name,
         c.credits,
-
         d.dept_name,
-
-        ct.weekday,
-        ct.start_time,
-        ct.end_time,
-
-        i.instructor_id AS instructor,
-
+        i.name AS instructor,
         cl.building,
         cl.room_number,
-
         co.current_enroll,
-        co.capacity
+        co.capacity,
+        -- ⭐ 關鍵：把不同的星期和時間黏在一起。例如："1:10:20:00-12:10:00,5:12:20:00-14:10:00"
+        GROUP_CONCAT(CONCAT(ct.weekday, ':', ct.start_time, '-', ct.end_time) ORDER BY ct.weekday) AS all_times
 
     FROM Course_Offering co
-
-    JOIN Course c
+    JOIN Course c 
         ON co.course_id = c.course_id
-
-    LEFT JOIN Department d
+    LEFT JOIN Department d 
         ON c.dept_name = d.dept_name
-
-    LEFT JOIN Course_Time ct
-        ON co.time_id = ct.time_id
-
-    LEFT JOIN Instructor i
+    LEFT JOIN Offering_Time ot 
+        ON co.offering_id = ot.offering_id  -- 透過中介表 JOIN
+    LEFT JOIN Course_Time ct 
+        ON ot.time_id = ct.time_id
+    LEFT JOIN Instructor i 
         ON co.instructor_id = i.instructor_id
-
-    LEFT JOIN Classroom cl
+    LEFT JOIN Classroom cl 
         ON co.classroom_id = cl.classroom_id
-
     WHERE 1=1
     """
 
@@ -375,10 +366,39 @@ def course_search():
         sql += " AND i.name LIKE %s"
         params.append(f"%{instructor}%")
 
+
+    sql += " GROUP BY co.offering_id ORDER BY c.course_id"
     cursor.execute(sql, params)
 
     courses = cursor.fetchall()
+    # 在 cursor.fetchall() 後面加上這段轉換邏輯
+    
+    
+    weekday_map = {1: "週一", 2: "週二", 3: "週三", 4: "週四", 5: "週五", 6: "週六", 7: "週日"}
+    
+    for course in courses:
+        if course["all_times"]:
+            time_strings = []
+            # 依逗號拆開多個時段
+            slots = course["all_times"].split(",") 
+            for slot in slots:
+                # 拆出 星期、開始時間、結束時間
+                w_day, time_range = slot.split(":", 1)
+                start, end = time_range.split("-")
+                
+                # 格式化時間 (只取到分，去掉秒，例如 10:20:00 -> 10:20)
+                start_hm = ":".join(start.split(":")[:2])
+                end_hm = ":".join(end.split(":")[:2])
+                
+                time_strings.append(f"{weekday_map[int(w_day)]} {start_hm}~{end_hm}")
+            
+            # 把格式化後的結果用空格或逗號串起來，存回一個新欄位
+            course["formatted_time"] = " | ".join(time_strings)
+        else:
+            course["formatted_time"] = "未排定時間"
 
+    
+    # 後續一樣 return render_template(...)
     db.close()
 
     return render_template(
@@ -444,28 +464,29 @@ def enroll(offering_id):
             if not cursor.fetchone():
                 return {"message": "授權碼無效或已過期"}, 400
 
-        # 4. 多時段衝堂檢查 (修正 fetchone 漏時段的 Bug)
+        # 1. 撈出學生目前已選的所有課的所有時段
         cursor.execute("""
             SELECT ct.* FROM Enrollment e
-            JOIN Course_Offering co ON e.offering_id = co.offering_id
-            JOIN Course_Time ct ON co.time_id = ct.time_id
+            JOIN Offering_Time ot ON e.offering_id = ot.offering_id
+            JOIN Course_Time ct ON ot.time_id = ct.time_id
             WHERE e.student_id=%s
         """, (student_id,))
         my_times = cursor.fetchall()
 
+        # 2. 撈出該加選新課的所有時段
         cursor.execute("""
-            SELECT ct.* FROM Course_Offering co
-            JOIN Course_Time ct ON co.time_id = ct.time_id
-            WHERE co.offering_id=%s
+            SELECT ct.* FROM Offering_Time ot
+            JOIN Course_Time ct ON ot.time_id = ct.time_id
+            WHERE ot.offering_id=%s
         """, (offering_id,))
-        new_times = cursor.fetchall() # 改用 fetchall 處理一門課多個上課時間
+        new_times = cursor.fetchall()
 
+        # 3. 進行雙層迴圈交叉比對 (邏輯不變，但資料變精準了！)
         for new_t in new_times:
             for my_t in my_times:
                 if new_t["weekday"] == my_t["weekday"]:
-                    # 判斷時間重疊
                     if not (new_t["end_time"] <= my_t["start_time"] or new_t["start_time"] >= my_t["end_time"]):
-                        return {"message": f"時間與已選課程衝堂(星期{new_t['weekday']})"}, 400
+                        return {"message": "時間衝堂"}, 400
 
         # 5. 先修課檢查
         cursor.execute("SELECT prereq_id FROM Course_Prereq WHERE course_id=%s", (offering["course_id"],))
@@ -512,7 +533,29 @@ def schedule():
 
     db = get_db()
     cursor = db.cursor(dictionary=True)
-
+    # ==================== 【新增：點子 A 統計邏輯】 ====================
+    # 運用了 COUNT(), SUM() 聚合函數以及 GROUP BY 分組
+    summary_sql = """
+    SELECT 
+        COUNT(e.offering_id) AS total_courses,
+        SUM(c.credits) AS total_credits
+    FROM Enrollment e
+    JOIN Course_Offering co ON e.offering_id = co.offering_id
+    JOIN Course c ON co.course_id = c.course_id
+    WHERE e.student_id = %s AND e.status = 'enrolled'
+    GROUP BY e.student_id
+    """
+    cursor.execute(summary_sql, (student_id,))
+    summary_result = cursor.fetchone()
+    
+    # 如果學生一堂課都還沒選，fetch 出來會是 None，給予預設值 0
+    if summary_result:
+        total_courses = summary_result["total_courses"]
+        total_credits = summary_result["total_credits"]
+    else:
+        total_courses = 0
+        total_credits = 0
+    # ====================================================================
     cursor.execute("""
     SELECT 
         co.offering_id,
@@ -522,11 +565,12 @@ def schedule():
         ct.end_time,
         cl.building,
         cl.room_number,
-        i.instructor_id AS instructor_name
+        i.name AS instructor_name
     FROM Enrollment e
     JOIN Course_Offering co ON e.offering_id = co.offering_id
     JOIN Course c ON co.course_id = c.course_id
-    JOIN Course_Time ct ON co.time_id = ct.time_id
+    JOIN Offering_Time ot ON co.offering_id = ot.offering_id  -- 新增這行
+    JOIN Course_Time ct ON ot.time_id = ct.time_id            -- 修改這行
     LEFT JOIN Classroom cl ON co.classroom_id = cl.classroom_id
     LEFT JOIN Instructor i ON co.instructor_id = i.instructor_id
     WHERE e.student_id = %s
@@ -556,7 +600,9 @@ def schedule():
         "schedule.html",
         timetable=timetable,
         periods=PERIODS,
-        weekdays=WEEKDAYS
+        weekdays=WEEKDAYS,
+        total_courses=total_courses,     # 👈 傳給前端
+        total_credits=total_credits       # 👈 傳給前端
     )
 
 @app.route("/drop/<offering_id>")

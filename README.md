@@ -57,7 +57,7 @@ GRANT ALL PRIVILEGES ON course_system.* TO 'course_admin'@'localhost';
 FLUSH PRIVILEGES;
 ```
 
-## DATABASE
+## 原DATABASE
 ```sql
 CREATE DATABASE course_system;
 USE course_system;
@@ -159,4 +159,121 @@ CREATE TABLE Completed_Course (
     FOREIGN KEY (course_id) REFERENCES Course(course_id)
 );
 
+```
+## 新DATABASE
+```sql
+CREATE TABLE Department (
+    dept_name VARCHAR(100) PRIMARY KEY,
+    building VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE Instructor (
+    instructor_id VARCHAR(20) PRIMARY KEY,
+    password VARCHAR(255) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    dept_name VARCHAR(100),
+    FOREIGN KEY (dept_name) REFERENCES Department(dept_name) ON DELETE SET NULL
+);
+
+CREATE TABLE Student (
+    student_id VARCHAR(20) PRIMARY KEY,
+    password VARCHAR(255) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    dept_name VARCHAR(100),
+    grade INT,
+    tot_credits INT DEFAULT 0,
+    advisor_id VARCHAR(50),
+    FOREIGN KEY (dept_name) REFERENCES Department(dept_name) ON DELETE SET NULL,
+    FOREIGN KEY (advisor_id) REFERENCES Instructor(instructor_id) ON DELETE SET NULL
+);
+
+CREATE TABLE Semester (
+    semester_id VARCHAR(50) PRIMARY KEY,
+    year INT NOT NULL,
+    term VARCHAR(20) NOT NULL
+);
+
+CREATE TABLE Classroom (
+    classroom_id VARCHAR(50) PRIMARY KEY,
+    building VARCHAR(100) NOT NULL,
+    room_number VARCHAR(20) NOT NULL,
+    capacity INT NOT NULL
+);
+
+CREATE TABLE Course_Time (
+    time_id VARCHAR(20) PRIMARY KEY,
+    weekday INT NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL
+);
+
+CREATE TABLE Course (
+    course_id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    credits INT NOT NULL,
+    category ENUM('required', 'elective') NOT NULL,
+    dept_name VARCHAR(100),
+    FOREIGN KEY (dept_name) REFERENCES Department(dept_name) ON DELETE SET NULL
+);
+
+CREATE TABLE Course_Prereq (
+    course_id VARCHAR(50),
+    prereq_id VARCHAR(50),
+    PRIMARY KEY (course_id, prereq_id),
+    FOREIGN KEY (course_id) REFERENCES Course(course_id) ON DELETE CASCADE,
+    FOREIGN KEY (prereq_id) REFERENCES Course(course_id) ON DELETE CASCADE
+);
+
+-- ⭐ 修改後的 Course_Offering：移除了原本的 time_id 欄位與其外鍵約束
+CREATE TABLE Course_Offering (
+    offering_id VARCHAR(50) PRIMARY KEY,
+    course_id VARCHAR(50) NOT NULL,
+    semester_id VARCHAR(50) NOT NULL,
+    instructor_id VARCHAR(20),
+    classroom_id VARCHAR(50),
+    capacity INT NOT NULL,
+    current_enroll INT DEFAULT 0,
+
+    FOREIGN KEY (course_id) REFERENCES Course(course_id) ON DELETE CASCADE,
+    FOREIGN KEY (semester_id) REFERENCES Semester(semester_id) ON DELETE CASCADE,
+    FOREIGN KEY (instructor_id) REFERENCES Instructor(instructor_id) ON DELETE SET NULL,
+    FOREIGN KEY (classroom_id) REFERENCES Classroom(classroom_id) ON DELETE SET NULL
+);
+
+-- ⭐ 新增的多對多中介資料表：用來存放一門開課的多個時間段
+CREATE TABLE Offering_Time (
+    offering_id VARCHAR(50),
+    time_id VARCHAR(20),
+    PRIMARY KEY (offering_id, time_id),
+    FOREIGN KEY (offering_id) REFERENCES Course_Offering(offering_id) ON DELETE CASCADE,
+    FOREIGN KEY (time_id) REFERENCES Course_Time(time_id) ON DELETE CASCADE
+);
+
+CREATE TABLE Authorization_Code (
+    code VARCHAR(20) PRIMARY KEY,
+    offering_id VARCHAR(50),
+    expire_time TIMESTAMP,
+    used BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (offering_id) REFERENCES Course_Offering(offering_id) ON DELETE CASCADE
+);
+
+CREATE TABLE Enrollment (
+    student_id VARCHAR(20),
+    offering_id VARCHAR(50),
+    status ENUM('enrolled', 'waitlist', 'dropped') DEFAULT 'waitlist',
+    priority INT,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (student_id, offering_id),
+    FOREIGN KEY (student_id) REFERENCES Student(student_id) ON DELETE CASCADE,
+    FOREIGN KEY (offering_id) REFERENCES Course_Offering(offering_id) ON DELETE CASCADE
+);
+
+CREATE TABLE Completed_Course (
+    student_id VARCHAR(20),
+    course_id VARCHAR(50),
+    grade VARCHAR(2),
+    PRIMARY KEY (student_id, course_id),
+    FOREIGN KEY (student_id) REFERENCES Student(student_id) ON DELETE CASCADE,
+    FOREIGN KEY (course_id) REFERENCES Course(course_id) ON DELETE CASCADE
+);
 ```

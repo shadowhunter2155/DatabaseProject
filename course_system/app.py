@@ -748,6 +748,292 @@ def teacher_add_course():
     db.close()
     return render_template("teacher_add_course.html", courses=all_courses)
 
+# =========================
+# Teacher Helper
+# =========================
 
+def require_teacher():
+    return "teacher_id" in session
+
+
+# =========================
+# Teacher Dashboard
+# =========================
+
+@app.route("/teacher_dashboard")
+def teacher_dashboard():
+
+    if not require_teacher():
+        return redirect("/login")
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT *
+        FROM Instructor
+        WHERE instructor_id=%s
+    """, (session["teacher_id"],))
+
+    teacher = cursor.fetchone()
+
+    db.close()
+
+    return render_template(
+        "teacher_dashboard.html",
+        teacher=teacher
+    )
+
+
+# =========================
+# 修改課程
+# =========================
+
+@app.route("/teacher/course/edit/<course_id>", methods=["POST"])
+def teacher_edit_course(course_id):
+
+    if not require_teacher():
+        return redirect("/login")
+
+    name = request.form["name"]
+    credits = request.form["credits"]
+
+    db = get_db()
+    cursor = db.cursor()
+
+    cursor.execute("""
+        UPDATE Course
+        SET name=%s,
+            credits=%s
+        WHERE course_id=%s
+    """, (name, credits, course_id))
+
+    db.commit()
+    db.close()
+
+    return "課程修改成功"
+
+
+# =========================
+# 新增開課
+# =========================
+
+@app.route("/teacher/offering/add", methods=["POST"])
+def teacher_add_offering():
+
+    if not require_teacher():
+        return redirect("/login")
+
+    course_id = request.form["course_id"]
+    semester_id = request.form["semester_id"]
+    classroom_id = request.form["classroom_id"]
+    time_id = request.form["time_id"]
+    capacity = request.form["capacity"]
+
+    teacher_id = session["teacher_id"]
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT *
+        FROM Course_Offering
+        WHERE (instructor_id=%s OR classroom_id=%s)
+        AND time_id=%s
+    """, (teacher_id, classroom_id, time_id))
+
+    if cursor.fetchone():
+        db.close()
+        return "時間衝突"
+
+    cursor = db.cursor()
+
+    cursor.execute("""
+        INSERT INTO Course_Offering
+        (
+            course_id,
+            semester_id,
+            instructor_id,
+            classroom_id,
+            time_id,
+            capacity,
+            current_enroll
+        )
+        VALUES
+        (
+            %s,%s,%s,%s,%s,%s,0
+        )
+    """, (
+        course_id,
+        semester_id,
+        teacher_id,
+        classroom_id,
+        time_id,
+        capacity
+    ))
+
+    db.commit()
+    db.close()
+
+    return "開課成功"
+
+
+# =========================
+# 修改開課
+# =========================
+
+@app.route("/teacher/offering/edit/<offering_id>", methods=["POST"])
+def teacher_edit_offering(offering_id):
+
+    if not require_teacher():
+        return redirect("/login")
+
+    classroom_id = request.form["classroom_id"]
+    time_id = request.form["time_id"]
+    capacity = request.form["capacity"]
+
+    teacher_id = session["teacher_id"]
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT *
+        FROM Course_Offering
+        WHERE offering_id != %s
+        AND (instructor_id=%s OR classroom_id=%s)
+        AND time_id=%s
+    """, (
+        offering_id,
+        teacher_id,
+        classroom_id,
+        time_id
+    ))
+
+    if cursor.fetchone():
+        db.close()
+        return "時間衝突"
+
+    cursor = db.cursor()
+
+    cursor.execute("""
+        UPDATE Course_Offering
+        SET classroom_id=%s,
+            time_id=%s,
+            capacity=%s
+        WHERE offering_id=%s
+    """, (
+        classroom_id,
+        time_id,
+        capacity,
+        offering_id
+    ))
+
+    db.commit()
+    db.close()
+
+    return "修改成功"
+
+
+# =========================
+# 刪除開課
+# =========================
+
+@app.route("/teacher/offering/delete/<offering_id>")
+def teacher_delete_offering(offering_id):
+
+    if not require_teacher():
+        return redirect("/login")
+
+    db = get_db()
+    cursor = db.cursor()
+
+    cursor.execute("""
+        DELETE FROM Course_Offering
+        WHERE offering_id=%s
+    """, (offering_id,))
+
+    db.commit()
+    db.close()
+
+    return "刪除成功"
+
+
+# =========================
+# 查看老師所有開課
+# =========================
+
+@app.route("/teacher/courses")
+def teacher_courses():
+
+    if not require_teacher():
+        return redirect("/login")
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT
+            co.offering_id,
+            c.course_id,
+            c.name,
+            co.capacity,
+            co.current_enroll
+        FROM Course_Offering co
+        JOIN Course c
+            ON co.course_id=c.course_id
+        WHERE co.instructor_id=%s
+    """, (session["teacher_id"],))
+
+    courses = cursor.fetchall()
+
+    db.close()
+
+    return render_template(
+        "teacher_courses.html",
+        courses=courses
+    )
+
+
+# =========================
+# 查看老師課表
+# =========================
+
+@app.route("/teacher/schedule")
+def teacher_schedule():
+
+    if not require_teacher():
+        return redirect("/login")
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT
+            c.name,
+            ct.weekday,
+            ct.start_time,
+            ct.end_time,
+            cl.building,
+            cl.room_number
+        FROM Course_Offering co
+        JOIN Course c
+            ON co.course_id=c.course_id
+        JOIN Course_Time ct
+            ON co.time_id=ct.time_id
+        LEFT JOIN Classroom cl
+            ON co.classroom_id=cl.classroom_id
+        WHERE co.instructor_id=%s
+    """, (session["teacher_id"],))
+
+    schedule = cursor.fetchall()
+
+    db.close()
+
+    return render_template(
+        "teacher_schedule.html",
+        schedule=schedule
+    )
+    
 if __name__ == "__main__":
     app.run(debug=True)

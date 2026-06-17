@@ -9,28 +9,45 @@ def register():
     if request.method == "POST":
         user_id = request.form["user_id"]
         password = request.form["password"]
+        name = request.form["name"]
         role = request.form["role"]  # 'student' 或 'teacher'
-
+        dept_name = request.form.get("dept_name")  # 👈 提取共用的科系欄位
+        
         db = get_db()
         cursor = db.cursor(dictionary=True)
 
         if role == "student":
+            grade = request.form.get("grade")
+            # 寫入學生資料表
             cursor.execute("""
-                INSERT INTO Student(student_id, password)
-                VALUES (%s, %s)
-            """, (user_id, password))
+                INSERT INTO Student(student_id, password, name, dept_name, grade)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (user_id, password, name, dept_name, grade))
+            
         elif role == "teacher":
+            # 👈 這裡修改：讓老師註冊時也能將 dept_name 寫入 Instructor 資料表
             cursor.execute("""
-                INSERT INTO Instructor(instructor_id, password)
-                VALUES (%s, %s)
-            """, (user_id, password))
+                INSERT INTO Instructor(instructor_id, password, name, dept_name)
+                VALUES (%s, %s, %s, %s)
+            """, (user_id, password, name, dept_name))
 
         db.commit()
         db.close()
         return redirect("/login")
 
-    # GET 時顯示註冊表單
-    return render_template("register.html")
+    # GET 時：從 Department table 撈取所有科系
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT dept_name 
+        FROM Department 
+        WHERE dept_name IS NOT NULL AND dept_name != ''
+        ORDER BY dept_name
+    """)
+    departments = cursor.fetchall()
+    db.close()
+
+    return render_template("register.html", departments=departments)
 
 
 def get_course_periods(start_time, end_time):
@@ -72,10 +89,10 @@ def get_course_periods(start_time, end_time):
 # 在 app.py 中大約第 50 行左右
 def get_db():
     return mysql.connector.connect(
-        host="140.122.184.121",
-        user="team04",          # 👈 改成你常用的帳號（例如 root）
-        password="s$W3CbiTDvf@",   # 👈 改成你電腦真正的資料庫密碼
-        database="team04"
+        host="127.0.0.1",
+        user="root",          # 👈 改成你常用的帳號（例如 root）
+        password="poray0408",   # 👈 改成你電腦真正的資料庫密碼
+        database="course_system2"
     )
 db = get_db()
 cursor = db.cursor(dictionary=True)
@@ -996,21 +1013,24 @@ def teacher_courses():
 
 
 # =========================
-# 查看老師課表
+# 查看老師課表 (精準節次版)
 # =========================
-
 @app.route("/teacher/schedule")
 def teacher_schedule():
-
     if not require_teacher():
         return redirect("/login")
+
+    PERIODS = list(range(0, 14))  # 0~13 節
+    WEEKDAYS = [1, 2, 3, 4, 5]    # 週一到週五
 
     db = get_db()
     cursor = db.cursor(dictionary=True)
 
+    # 撈出該教授這學期所有開課的「所有時段」與「教室」
     cursor.execute("""
         SELECT
-            c.name,
+            co.offering_id,
+            c.name AS course_name,
             ct.weekday,
             ct.start_time,
             ct.end_time,
@@ -1018,21 +1038,40 @@ def teacher_schedule():
             cl.room_number
         FROM Course_Offering co
         JOIN Course c
-            ON co.course_id=c.course_id
+            ON co.course_id = c.course_id
+        JOIN Offering_Time ot 
+            ON co.offering_id = ot.offering_id
         JOIN Course_Time ct
-            ON co.time_id=ct.time_id
+            ON ot.time_id = ct.time_id
         LEFT JOIN Classroom cl
-            ON co.classroom_id=cl.classroom_id
-        WHERE co.instructor_id=%s
+            ON co.classroom_id = cl.classroom_id
+        WHERE co.instructor_id = %s
     """, (session["teacher_id"],))
 
-    schedule = cursor.fetchall()
-
+    rows = cursor.fetchall()
     db.close()
+
+    # 建立一個空課表：格式為 timetable[period][weekday] = 課程資料
+    teacher_timetable = {}
+    for row in rows:
+        weekday = row["weekday"]
+        start = row["start_time"]
+        end = row["end_time"]
+
+        # 利用你寫好的時間轉換函數，把 "09:00:00" 到 "11:00:00" 轉成節次列表，例如 [1, 2]
+        periods = get_course_periods(start, end)
+
+        for period in periods:
+            if period not in teacher_timetable:
+                teacher_timetable[period] = {}
+            # 將該節次的該星期格子填入課程
+            teacher_timetable[period][weekday] = row
 
     return render_template(
         "teacher_schedule.html",
-        schedule=schedule
+        timetable=teacher_timetable,
+        periods=PERIODS,
+        weekdays=WEEKDAYS
     )
     
 if __name__ == "__main__":

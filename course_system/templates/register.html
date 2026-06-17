@@ -1,11 +1,104 @@
-﻿<h2>用戶註冊</h2>
-<form method="post">
-    學號: <input type="text" name="user_id" required><br>
-    密碼: <input type="password" name="password" required><br>
-    身份:
-    <select name="role" required>
-        <option value="student">學生</option>
-        <option value="teacher">老師</option>
-    </select><br>
-    <button type="submit">註冊</button>
-</form>
+﻿<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>系統註冊</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .register-container {
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 30px;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+<div class="container">
+    <div class="register-container">
+        <h3 class="text-center mb-4">🔐 新用戶註冊</h3>
+        
+        <form action="/register" method="POST">
+            <div class="mb-3">
+                <label class="form-label">帳號 (ID)</label>
+                <input type="text" name="user_id" class="form-control" placeholder="請輸入學號或教師編號" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">密碼</label>
+                <input type="password" name="password" class="form-control" placeholder="請輸入密碼" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">姓名</label>
+                <input type="text" name="name" class="form-control" placeholder="請輸入真實姓名" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label text-primary fw-bold">所屬科系</label>
+                <select name="dept_name" class="form-select" required>
+                    <option value="" disabled selected>-- 請選擇您的科系 --</option>
+                    {% for dept in departments %}
+                        <option value="{{ dept.dept_name }}">{{ dept.dept_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">註冊身分</label>
+                <select name="role" id="roleSelect" class="form-select" onchange="toggleStudentFields()" required>
+                    <option value="student" selected>學生 (Student)</option>
+                    <option value="teacher">教師 (Teacher)</option>
+                </select>
+            </div>
+
+            <div id="studentFields">
+                <div class="mb-3">
+                    <label class="form-label text-primary fw-bold">目前年級</label>
+                    <select name="grade" id="gradeSelect" class="form-select">
+                        <option value="" disabled selected>-- 請選擇您的年級 --</option>
+                        <option value="1">一年級 (Freshman)</option>
+                        <option value="2">二年級 (Sophomore)</option>
+                        <option value="3">三年級 (Junior)</option>
+                        <option value="4">四年級 (Senior)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="d-flex gap-3 mt-4">
+                <button type="submit" class="btn btn-primary w-50 py-2">註冊</button>
+                <button type="button" class="btn btn-secondary w-50 py-2" onclick="window.location.href='/'">返回主頁</button>
+            </div>
+        </form>
+
+        <div class="text-center mt-3">
+            <small class="text-muted">已經有帳號了？ <a href="/login">點此登入</a></small>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleStudentFields() {
+    var role = document.getElementById("roleSelect").value;
+    var studentFields = document.getElementById("studentFields");
+    var gradeSelect = document.getElementById("gradeSelect");
+    
+    if (role === "student") {
+        studentFields.style.display = "block";
+        gradeSelect.required = true;     // 學生身分時，年級為必填
+    } else {
+        studentFields.style.display = "none";
+        gradeSelect.required = false;    // 老師身分時，取消年級必填限制
+    }
+}
+
+// 頁面初次載入時初始化
+window.onload = toggleStudentFields;
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -2,6 +2,9 @@ from flask import Flask, render_template, request, redirect, session, url_for
 import mysql.connector
 import os
 
+from dotenv import load_dotenv
+load_dotenv()
+
 app = Flask(__name__)
 app.secret_key = "course_system_secret"
 
@@ -89,13 +92,13 @@ def get_course_periods(start_time, end_time):
     return matched_periods
 # 在 app.py 中大約第 50 行左右
 def get_db():
-    db = mysql.connector.connect(
+    return mysql.connector.connect(
         host=os.getenv("DB_HOST"),
+        port=int(os.getenv("DB_PORT")),
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
         database=os.getenv("DB_NAME")
     )
-    return db
 db = get_db()
 cursor = db.cursor(dictionary=True)
 
@@ -1077,4 +1080,7 @@ def teacher_schedule():
     )
     
 if __name__ == "__main__":
-    app.run()
+    app.run(
+        host="0.0.0.0",
+        port=5000
+    )

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>我的課表</title>
+
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            text-align: center;
+        }
+
+        th, td {
+            border: 1px solid black;
+            padding: 10px;
+            height: 60px;
+        }
+
+        th {
+            background: #f2f2f2;
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>我的課表</h2>
+<div style="margin-bottom:20px;">
+
+    <a href="/student_home">
+        <button>🏠 學生首頁</button>
+    </a>
+
+    <a href="/course_search">
+        <button>🔍 選課查詢</button>
+    </a>
+
+    <a href="/schedule">
+        <button>📅 我的課表</button>
+    </a>
+
+    <a href="/logout">
+        <button>🚪 登出</button>
+    </a>
+
+</div>
+<div class="summary-container" style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 5px solid #007bff; border-radius: 4px;">
+    <h3 style="margin-top: 0;">📊 本學期選課統計</h3>
+    <p style="font-size: 16px; margin: 5px 0;">
+        本學期已選課程總數：<strong style="color: #007bff; font-size: 20px;">{{ total_courses }}</strong> 門課
+    </p>
+    <p style="font-size: 16px; margin: 5px 0;">
+        本學期已選總學分數：<strong style="color: #28a745; font-size: 20px;">{{ total_credits }}</strong> 學分
+    </p>
+</div>
+
+<hr>
+<table>
+
+<tr>
+    <th>節次</th>
+    <th>Mon</th>
+    <th>Tue</th>
+    <th>Wed</th>
+    <th>Thu</th>
+    <th>Fri</th>
+</tr>
+
+{% for p in periods %}
+
+<tr>
+
+    <td>{{ p }}</td>
+
+    {% for d in weekdays %}
+
+        <td>
+
+            {% if p in timetable and d in timetable[p] %}
+
+                <b>{{ timetable[p][d].course_name }}</b><br>
+                {{ timetable[p][d].building }} {{ timetable[p][d].room_number }}<br>
+                {{ timetable[p][d].instructor_name }}<br><br>
+
+                <button onclick="confirmDrop('{{ timetable[p][d].offering_id }}')">
+                取消選課
+                </button>
+
+                <script>
+                function confirmDrop(id){
+                    if(confirm("確定要刪除這門課嗎？")){
+                        window.location.href = "/drop/" + id;
+                    }
+                }
+                </script>
+
+            {% endif %}
+
+        </td>
+
+    {% endfor %}
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+</body>
+</html>

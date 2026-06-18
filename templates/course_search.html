@@ -1,0 +1,197 @@
+<h1>選課查詢</h1>
+
+<div style="margin-bottom:20px;">
+
+    <a href="/student_home">
+        <button>🏠 學生首頁</button>
+    </a>
+
+    <a href="/course_search">
+        <button>🔍 選課查詢</button>
+    </a>
+
+    <a href="/schedule">
+        <button>📅 我的課表</button>
+    </a>
+
+    <a href="/logout">
+        <button>🚪 登出</button>
+    </a>
+
+</div>
+
+<hr>
+<form method="GET" action="/course_search">
+
+    <!-- 課程代碼 -->
+    <p>
+        課程代碼：
+        <input type="text" name="course_id" value="{{ course_id }}">
+    </p>
+
+    <!-- 課程名稱 -->
+    <p>
+        課程名稱：
+        <input type="text" name="course_name" value="{{ course_name }}">
+    </p>
+    <!-- 教授 -->
+    <p>
+        教授：
+        <input type="text" name="instructor" value="{{ instructor }}">
+    </p>
+    <!-- 系所（下拉選單） -->
+    <p>
+        系所：
+        <select name="dept_name">
+
+            <option value="">全部</option>
+
+            {% for d in departments %}
+                <option value="{{ d.dept_name }}"
+                    {% if dept_name == d.dept_name %}selected{% endif %}>
+                    {{ d.dept_name }}
+                </option>
+            {% endfor %}
+
+        </select>
+    </p>
+
+    <!-- 星期（下拉） -->
+    <p>
+        星期：
+        <select name="weekday">
+
+            <option value="">全部</option>
+
+            <option value="1" {% if weekday == '1' %}selected{% endif %}>星期一</option>
+            <option value="2" {% if weekday == '2' %}selected{% endif %}>星期二</option>
+            <option value="3" {% if weekday == '3' %}selected{% endif %}>星期三</option>
+            <option value="4" {% if weekday == '4' %}selected{% endif %}>星期四</option>
+            <option value="5" {% if weekday == '5' %}selected{% endif %}>星期五</option>
+
+        </select>
+    </p>
+
+    <!-- 節次（勾選） -->
+    <p>
+        節次：
+        <br>
+
+        {% for i in range(14) %}
+            <label>
+                <input type="checkbox" name="period" value="{{ i }}"
+                    {% if i|string in periods %}checked{% endif %}>
+                第{{ i }}節
+            </label>
+        {% endfor %}
+    </p>
+
+    
+
+    <button type="submit">搜尋</button>
+
+</form>
+
+<hr>
+<table border="1">
+<tr>
+    <th>課程代碼</th>
+    <th>課程</th>
+    <th>系所</th>
+    <th>學分</th>
+    <th>時間</th>
+    <th>教授</th>
+    <th>教室</th>
+    <th>人數</th>
+    <th>選課</th>
+</tr>
+
+{% for c in courses %}
+<tr>
+    <td>{{ c.course_id }}</td>
+    <td>{{ c.name }}</td>
+    <td>{{ c.dept_name }}</td>
+    <td>{{ c.credits }}</td>
+    <td>{{ c.formatted_time }}</td>
+    <td>{{ c.instructor }}</td>
+    <td>{{ c.building }} {{ c.room_number }}</td>
+    <td>{{ c.current_enroll }}/{{ c.capacity }}</td>
+    <td>
+
+    <form class="enroll-form"
+        action="/enroll/{{ c.offering_id }}"
+        method="POST">
+
+        <input
+            type="text"
+            name="auth_code"
+            placeholder="授權碼(選填)"
+        >
+
+        <button type="submit">
+            選課
+        </button>
+
+    </form>
+
+    </td>
+</tr>
+{% endfor %}
+</table>
+<script>
+
+document.querySelectorAll(".enroll-form").forEach(form => {
+
+    form.addEventListener("submit", async function(e){
+
+        e.preventDefault();
+
+        if(!confirm("確定要選這門課嗎？")){
+            return;
+        }
+
+        let response = await fetch(
+            form.action,
+            {
+                method:"POST",
+                body:new FormData(form)
+            }
+        );
+
+        let data = await response.json();
+
+        alert(data.message);
+
+        if(response.ok){
+            location.reload();
+        }
+
+    });
+
+});
+
+</script>
+<script>
+function enroll(event, offering_id) {
+    event.preventDefault();
+
+    let form = event.target;
+    let auth_code = form.querySelector("input[name='auth_code']").value;
+
+    fetch("/enroll/" + offering_id, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: "auth_code=" + encodeURIComponent(auth_code)
+    })
+    .then(res => res.json())
+    .then(data => {
+        alert(data.message);  // ⭐ 小視窗
+        location.reload();     // ⭐ 更新課表/名額
+    })
+    .catch(err => {
+        alert("選課失敗");
+    });
+}
+</script>

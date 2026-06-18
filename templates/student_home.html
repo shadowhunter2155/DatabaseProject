@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>學生首頁</title>
+</head>
+<body>
+
+<h1>歡迎 {{student.name}}</h1>
+<div style="margin-bottom:20px;">
+
+    <a href="/student_home">
+        <button>🏠 學生首頁</button>
+    </a>
+
+    <a href="/course_search">
+        <button>🔍 選課查詢</button>
+    </a>
+
+    
+
+    <a href="/schedule">
+        <button>📅 我的課表</button>
+    </a>
+
+    <a href="/logout">
+        <button>🚪 登出</button>
+    </a>
+
+</div>
+<p>學號：{{ student.student_id }}</p>
+
+<p>系所：{{ student.dept_name }}</p>
+
+<p>年級：{{ student.grade }}</p>
+
+<p>總學分：{{ student.tot_credits }}</p>
+
+
+
+
+
+</body>
+</html>

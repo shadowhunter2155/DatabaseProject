@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, session, url_for
 import mysql.connector
+import os
 
 app = Flask(__name__)
 app.secret_key = "course_system_secret"
@@ -88,12 +89,13 @@ def get_course_periods(start_time, end_time):
     return matched_periods
 # 在 app.py 中大約第 50 行左右
 def get_db():
-    return mysql.connector.connect(
-        host="127.0.0.1",
-        user="root",          # 👈 改成你常用的帳號（例如 root）
-        password="poray0408",   # 👈 改成你電腦真正的資料庫密碼
-        database="course_system2"
+    db = mysql.connector.connect(
+        host=os.getenv("DB_HOST"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        database=os.getenv("DB_NAME")
     )
+    return db
 db = get_db()
 cursor = db.cursor(dictionary=True)
 

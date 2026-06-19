@@ -8,6 +8,15 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = "course_system_secret"
 
+def get_db():
+    return mysql.connector.connect(
+        host=os.getenv("DB_HOST"),
+        port=int(os.getenv("DB_PORT")),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        database=os.getenv("DB_NAME")
+    )
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -53,7 +62,6 @@ def register():
 
     return render_template("register.html", departments=departments)
 
-
 def get_course_periods(start_time, end_time):
     """
     輸入開始與結束時間(timedelta或string)，計算它橫跨了哪些節數
@@ -90,19 +98,6 @@ def get_course_periods(start_time, end_time):
             matched_periods.append(p)
             
     return matched_periods
-# 在 app.py 中大約第 50 行左右
-def get_db():
-    return mysql.connector.connect(
-        host=os.getenv("DB_HOST"),
-        port=int(os.getenv("DB_PORT")),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        database=os.getenv("DB_NAME")
-    )
-db = get_db()
-cursor = db.cursor(dictionary=True)
-
-
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -138,8 +133,6 @@ def login():
         db.close()
 
     return render_template("login.html")
-
-
 
 # main homepage
 @app.route("/")
@@ -259,7 +252,7 @@ def teacher_home():
 
     if "teacher_id" not in session:
         return redirect("/login")
-
+    db = get_db()
     cursor = db.cursor(dictionary=True)
 
     cursor.execute("""
